@@ -1,7 +1,8 @@
-use crate::execute::Execute;
+use crate::{errores::error::ErrorType, executer::execute::Execute};
 
-use super::{DeleteQuery, InsertQuery, SelectQuery, UpdateQuery};
+use super::{delete_query::DeleteQuery, insert_query::InsertQuery, select_query::SelectQuery, update_query::UpdateQuery};
 
+/// Enum que representa los diferentes tipos de consultas SQL soportadas.
 pub enum SQLQuery {
     Select(SelectQuery),
     Insert(InsertQuery),
@@ -10,7 +11,8 @@ pub enum SQLQuery {
 }
 
 impl Execute for SQLQuery {
-    fn execute(&self, path: &String) -> Result<(), String> {
+    /// Ejecuta la consulta SQL según el tipo de consulta.
+    fn execute(&self, path: &String) -> Result<(), ErrorType> {
         match self {
             SQLQuery::Select(query) => query.execute(path),
             SQLQuery::Insert(query) => query.execute(path),

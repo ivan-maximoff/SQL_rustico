@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod integration_tests {
-    use tp1::dato::Datos;
-    use tp1::lexer::{lexer, Operador};
-    use tp1::parser::parser;
-    use tp1::queries::comparadores::{ExpresionBooleana, OperadorComparacion};
-    use tp1::queries::SQLQuery;
+    use std::collections::HashMap;
+
+    use tp1::{dato::Datos, lexer::{lexer::lexer, operador::Operador}, parser::parser::parser, queries::{sql_query::SQLQuery, where_clause::{expresion_booleana::ExpresionBooleana, operador_comparacion::OperadorComparacion, valor::Valor}}, utils::procesar_consulta};
+
+    /// LEXER Y PARSER
     #[test]
-    fn test_insert_query() {
+    fn test_parser_insert_query() {
         let input = "INSERT INTO ordenes (id, id_cliente, producto, cantidad) VALUES (111, 6, 'laptop hola' , 3)".to_string();
         let query: Vec<Operador> = match lexer(&input){
             Ok(query) => query,
@@ -23,14 +23,13 @@ mod integration_tests {
             "producto".to_string(),
             "cantidad".to_string(),
         ];
-        let expected_values = vec![
-            vec![
-                Datos::Integer(111),
-                Datos::Integer(6),
-                Datos::String("laptop hola".to_string()),
-                Datos::Integer(3)
-            ]
-        ];
+        let mut expected_values = Vec::new();
+        let mut row1 = HashMap::new();
+        row1.insert("id".to_string(), Datos::Integer(111));
+        row1.insert("id_cliente".to_string(), Datos::Integer(6));
+        row1.insert("producto".to_string(), Datos::String("laptop hola".to_string()));
+        row1.insert("cantidad".to_string(), Datos::Integer(3));
+        expected_values.push(row1);
 
         match parser(query) {
             Ok(insert_query) => {
@@ -48,10 +47,11 @@ mod integration_tests {
             },
             Err(e) => panic!("La prueba falló con el error: {}", e.to_string())
         }
+        
     }
 
     #[test]
-    fn test_update_query() {
+    fn test_parser_update_query() {
         let input = "UPDATE clientes SET nombre = 'Juan', edad = 30 WHERE id = 1".to_string();
         let query: Vec<Operador> = match lexer(&input) {
             Ok(query) => query,
@@ -62,14 +62,15 @@ mod integration_tests {
         };
     
         let table = "clientes".to_string();
-        let expected_changes = vec![
-            ("nombre".to_string(), Datos::String("Juan".to_string())),
-            ("edad".to_string(), Datos::Integer(30))
-        ];
+
+        let mut expected_changes: HashMap<String, Datos> = HashMap::new();
+        expected_changes.insert("nombre".to_string(), Datos::String("Juan".to_string()));
+        expected_changes.insert("edad".to_string(), Datos::Integer(30));
+
         let expected_where_clause = Some(ExpresionBooleana::Comparacion {
-            izq: "id".to_string(),
+            izq: Valor::String("id".to_string()),
             operador: OperadorComparacion::Igual,
-            der: "1".to_string(),
+            der: Valor::String("1".to_string()),
         });
     
         match parser(query) {
@@ -88,7 +89,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_delete_query() {
+    fn test_parser_delete_query() {
         let input = "DELETE FROM usuarios WHERE edad < 18".to_string();
         let query: Vec<Operador> = match lexer(&input) {
             Ok(query) => query,
@@ -100,9 +101,9 @@ mod integration_tests {
 
         let table = "usuarios".to_string();
         let expected_where_clause = Some(ExpresionBooleana::Comparacion {
-            izq: "edad".to_string(),
+            izq: Valor::String("edad".to_string()),
             operador: OperadorComparacion::Menor,
-            der: "18".to_string(),
+            der: Valor::String("18".to_string()),
         });
 
         match parser(query) {
@@ -117,7 +118,7 @@ mod integration_tests {
     }
 
     #[test]
-    fn test_select_query() {
+    fn test_parser_select_query() {
         let input = "SELECT nombre, edad FROM empleados WHERE edad > 25 ORDER BY nombre ASC".to_string();
         let query: Vec<Operador> = match lexer(&input) {
             Ok(query) => query,
@@ -130,16 +131,16 @@ mod integration_tests {
         let expected_columns = vec!["nombre".to_string(), "edad".to_string()];
         let expected_table = "empleados".to_string();
         let expected_where_clause = Some(ExpresionBooleana::Comparacion {
-            izq: "edad".to_string(),
+            izq: Valor::String("edad".to_string()),
             operador: OperadorComparacion::Mayor,
-            der: "25".to_string(),
+            der: Valor::String("25".to_string()),
         });
         let expected_order = "ASC".to_string();
         let expected_by = vec!["nombre".to_string()];
 
         match parser(query) {
             Ok(SQLQuery::Select(select_query)) => {
-                assert_eq!(select_query.columns, expected_columns);
+                assert_eq!(select_query.columns_select, expected_columns.into_iter().collect());
                 assert_eq!(select_query.table, expected_table);
                 assert_eq!(select_query.where_clause, expected_where_clause);
                 assert_eq!(select_query.order, expected_order);
@@ -148,6 +149,43 @@ mod integration_tests {
             },
             Ok(_) => panic!("La prueba falló al matchear con SELECT"),
             Err(e) => panic!("La prueba falló con el error: {}", e.to_string())
+        }
+    }
+
+    /// LEXER, PARSER Y EXECUTER
+    #[test]
+    fn test_insert_query(){
+        let input = "INSERT INTO ordenes (id, id_cliente, producto, cantidad) VALUES (110, 6, 'laptop hola' , 3), (111, 6, 'laptop hola' , 3)".to_string();
+        let path = "/home/algo2/Escritorio/taller/sql/tp1/src".to_string();
+        if let Err(e) = procesar_consulta(&input, &path) {
+            eprintln!("{}", e.to_string());
+        }
+    }
+
+    #[test]
+    fn test_delete_query() {
+        let input = "DELETE FROM ordenes WHERE id < 111".to_string();
+        let path = "/home/algo2/Escritorio/taller/sql/tp1/src".to_string();
+        if let Err(e) = procesar_consulta(&input, &path) {
+            eprintln!("{}", e.to_string());
+        }
+    }
+
+    #[test]
+    fn test_update_query() {
+        let input = "UPDATE ordenes SET id = 116 WHERE id = 110".to_string();
+        let path = "/home/algo2/Escritorio/taller/sql/tp1/src".to_string();
+        if let Err(e) = procesar_consulta(&input, &path) {
+            eprintln!("{}", e.to_string());
+        }
+    }
+
+    #[test]
+    fn test_select_query() {
+        let input = "SELECT id, producto FROM ordenes WHERE cantidad > 2 ORDER BY id".to_string();
+        let path = "/home/algo2/Escritorio/taller/sql/tp1/src".to_string();
+        if let Err(e) = procesar_consulta(&input, &path) {
+            eprintln!("{}", e.to_string());
         }
     }
 }
