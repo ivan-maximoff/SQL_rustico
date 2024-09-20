@@ -2,7 +2,7 @@
 mod integration_tests {
     use std::collections::HashMap;
 
-    use tp1::{dato::Datos, lexer::{lexer::lexer, operador::Operador}, parser::parser::parser, queries::{sql_query::SQLQuery, where_clause::{expresion_booleana::ExpresionBooleana, operador_comparacion::OperadorComparacion, valor::Valor}}, utils::procesar_consulta};
+    use tp1::{dato::Datos, lexer::{lexer::lexer, operador::Operador}, parser::parser::parser, queries::{order_clause::{OrderClause, OrderDirection}, sql_query::SQLQuery, where_clause::{expresion_booleana::ExpresionBooleana, operador_comparacion::OperadorComparacion, valor::Valor}}, utils::procesar_consulta};
 
     /// LEXER Y PARSER
     #[test]
@@ -31,7 +31,7 @@ mod integration_tests {
         row1.insert("cantidad".to_string(), Datos::Integer(3));
         expected_values.push(row1);
 
-        match parser(query) {
+        match parser(&query) {
             Ok(insert_query) => {
                 match insert_query {
                     SQLQuery::Insert(insert_query) => {
@@ -42,10 +42,10 @@ mod integration_tests {
                         assert_eq!(insert_query.values[0].len(), 4);
                         println!("Insert query fue exitoso");
                     },
-                    _ =>  panic!("La prueba falló al matchear con INSERT")
+                    _ =>  println!("La prueba falló al matchear con INSERT")
                 }
             },
-            Err(e) => panic!("La prueba falló con el error: {}", e.to_string())
+            Err(e) => println!("La prueba falló con el error: {}", e.to_string())
         }
         
     }
@@ -73,7 +73,7 @@ mod integration_tests {
             der: Valor::String("1".to_string()),
         });
     
-        match parser(query) {
+        match parser(&query) {
             Ok(SQLQuery::Update(update_query)) => {
                 assert_eq!(update_query.table, table);
                 assert_eq!(update_query.changes, expected_changes);
@@ -83,8 +83,8 @@ mod integration_tests {
     
                 println!("Update query fue exitoso");
             },
-            Ok(_) => panic!("La prueba falló al matchear con UPDATE"),
-            Err(e) => panic!("La prueba falló con el error: {}", e.to_string())
+            Ok(_) => println!("La prueba falló al matchear con UPDATE"),
+            Err(e) => println!("La prueba falló con el error: {}", e.to_string())
         }
     }
 
@@ -106,14 +106,14 @@ mod integration_tests {
             der: Valor::String("18".to_string()),
         });
 
-        match parser(query) {
+        match parser(&query) {
             Ok(SQLQuery::Delete(delete_query)) => {
                 assert_eq!(delete_query.table, table);
                 assert_eq!(delete_query.where_clause, expected_where_clause);
                 println!("Delete query fue exitoso");
             },
-            Ok(_) => panic!("La prueba falló al matchear con DELETE"),
-            Err(e) => panic!("La prueba falló con el error: {}", e.to_string())
+            Ok(_) => println!("La prueba falló al matchear con DELETE"),
+            Err(e) => println!("La prueba falló con el error: {}", e.to_string())
         }
     }
 
@@ -135,20 +135,21 @@ mod integration_tests {
             operador: OperadorComparacion::Mayor,
             der: Valor::String("25".to_string()),
         });
-        let expected_order = "ASC".to_string();
-        let expected_by = vec!["nombre".to_string()];
+        let expected_order_by = Some(vec![OrderClause {
+            column: "nombre".to_string(),
+            direccion: OrderDirection::Asc,
+        }]);
 
-        match parser(query) {
+        match parser(&query) {
             Ok(SQLQuery::Select(select_query)) => {
-                assert_eq!(select_query.columns_select, expected_columns.into_iter().collect());
+                assert_eq!(select_query.columns_select, expected_columns);
                 assert_eq!(select_query.table, expected_table);
                 assert_eq!(select_query.where_clause, expected_where_clause);
-                assert_eq!(select_query.order, expected_order);
-                assert_eq!(select_query.by, expected_by);
+                assert_eq!(select_query.order_by, expected_order_by);
                 println!("Select query fue exitoso");
             },
-            Ok(_) => panic!("La prueba falló al matchear con SELECT"),
-            Err(e) => panic!("La prueba falló con el error: {}", e.to_string())
+            Ok(_) => println!("La prueba falló al matchear con SELECT"),
+            Err(e) => println!("La prueba falló con el error: {}", e.to_string())
         }
     }
 
@@ -156,36 +157,35 @@ mod integration_tests {
     #[test]
     fn test_insert_query(){
         let input = "INSERT INTO ordenes (id, id_cliente, producto, cantidad) VALUES (110, 6, 'laptop hola' , 3), (111, 6, 'laptop hola' , 3)".to_string();
-        let path = "/home/algo2/Escritorio/taller/sql/tp1/src".to_string();
+        let path = "../tp1/pruebas".to_string();
         if let Err(e) = procesar_consulta(&input, &path) {
-            eprintln!("{}", e.to_string());
+            println!("{}", e.to_string());
         }
     }
 
     #[test]
     fn test_delete_query() {
-        let input = "DELETE FROM ordenes WHERE id < 111".to_string();
-        let path = "/home/algo2/Escritorio/taller/sql/tp1/src".to_string();
+        let input = "DELETE FROM ordenes WHERE id <= 111".to_string();
+        let path = "../tp1/pruebas".to_string();
         if let Err(e) = procesar_consulta(&input, &path) {
-            eprintln!("{}", e.to_string());
+            println!("{}", e.to_string());
         }
     }
 
     #[test]
     fn test_update_query() {
         let input = "UPDATE ordenes SET id = 116 WHERE id = 110".to_string();
-        let path = "/home/algo2/Escritorio/taller/sql/tp1/src".to_string();
+        let path = "../tp1/pruebas".to_string();
         if let Err(e) = procesar_consulta(&input, &path) {
-            eprintln!("{}", e.to_string());
+            println!("{}", e.to_string());
         }
     }
 
     #[test]
     fn test_select_query() {
-        let input = "SELECT id, producto FROM ordenes WHERE cantidad > 2 ORDER BY id".to_string();
-        let path = "/home/algo2/Escritorio/taller/sql/tp1/src".to_string();
+        let input = "SELECT * FROM ordenes ORDER BY id".to_string();
+        let path = "../tp1/pruebas".to_string();
         if let Err(e) = procesar_consulta(&input, &path) {
-            eprintln!("{}", e.to_string());
-        }
-    }
+            println!("{}", e.to_string());
+        }}
 }

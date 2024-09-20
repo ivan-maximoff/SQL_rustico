@@ -34,7 +34,7 @@ fn main() {
     
     for query in &texto{
         if let Err(e) = procesar_consulta(query, &args[POS_PATH]) {
-            eprintln!("{}", e.to_string());
+            println!("{}", e.to_string());
             return;
         }
     }

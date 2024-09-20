@@ -34,6 +34,8 @@ impl Evaluar for ExpresionBooleana {
                     OperadorComparacion::Igual => Ok(valor_izq == valor_der),
                     OperadorComparacion::Menor => Ok(valor_izq < valor_der),
                     OperadorComparacion::Mayor => Ok(valor_izq > valor_der),
+                    OperadorComparacion::MenorIgual => Ok(valor_izq <= valor_der),
+                    OperadorComparacion::MayorIgual => Ok(valor_izq >= valor_der),
                 }
             },
             ExpresionBooleana::And(expr1, expr2) => {
