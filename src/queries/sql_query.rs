@@ -1,6 +1,9 @@
 use crate::{errores::error::ErrorType, executer::execute::Execute};
 
-use super::{delete_query::DeleteQuery, insert_query::InsertQuery, select_query::SelectQuery, update_query::UpdateQuery};
+use super::{
+    delete_query::DeleteQuery, insert_query::InsertQuery, select_query::SelectQuery,
+    update_query::UpdateQuery,
+};
 
 /// Enum que representa los diferentes tipos de consultas SQL soportadas.
 #[derive(Debug, PartialEq)]

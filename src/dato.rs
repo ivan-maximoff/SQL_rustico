@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq)]
-pub enum Datos{
+pub enum Datos {
     String(String),
-    Integer(i64)
+    Integer(i64),
 }

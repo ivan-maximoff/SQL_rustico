@@ -1,4 +1,14 @@
-use crate::{dato::Datos, errores::error::ErrorType, executer::execute::Execute, lexers::{lexer::lexer, operador::Operador}, parsers::parser::parser, queries::{order_clause::OrderDirection, where_clause::{operador_comparacion::OperadorComparacion, valor::Valor}}};
+use crate::{
+    dato::Datos,
+    errores::error::ErrorType,
+    executer::execute::Execute,
+    lexers::{lexer::lexer, operador::Operador},
+    parsers::parser::parser,
+    queries::{
+        order_clause::OrderDirection,
+        where_clause::{operador_comparacion::OperadorComparacion, valor::Valor},
+    },
+};
 /// Procesa una consulta SQL: analiza, convierte y ejecuta.
 pub fn procesar_consulta(query: &String, path: &str) -> Result<(), ErrorType> {
     let query_lexer = lexer(query)?;
@@ -9,7 +19,7 @@ pub fn procesar_consulta(query: &String, path: &str) -> Result<(), ErrorType> {
 /// Imprime la representación de una lista de operadores en formato legible,
 /// indentando los niveles de profundidad para listas anidadas.
 /// Creado principalmente para validar de forma legible que devuelve de forma correcta
-pub fn printear(rest: &[Operador]){
+pub fn printear(rest: &[Operador]) {
     fn print_operador(elemento: &Operador, indent: usize) {
         let padding = " ".repeat(indent);
         match elemento {
@@ -24,7 +34,7 @@ pub fn printear(rest: &[Operador]){
             Operador::Comparador(c) => println!("{}Comparador: {}", padding, c),
         }
     }
-    
+
     for elemento in rest {
         print_operador(elemento, 0);
     }
@@ -34,9 +44,12 @@ pub fn printear(rest: &[Operador]){
 
 /// Transforma un string a numero
 pub fn string_to_number(s: String) -> Result<Datos, ErrorType> {
-    match s.parse::<i64>(){ // Solo se acpetan numeros enteros?
+    match s.parse::<i64>() {
+        // Solo se acpetan numeros enteros?
         Ok(num) => Ok(Datos::Integer(num)),
-        Err(_) => Err(ErrorType::InvalidSyntax("Numero invalido en las listas".to_string())),
+        Err(_) => Err(ErrorType::InvalidSyntax(
+            "Numero invalido en las listas".to_string(),
+        )),
     }
 }
 
@@ -45,18 +58,26 @@ pub fn operador_to_dato(operador: &Operador) -> Result<Datos, ErrorType> {
     match operador {
         Operador::String(s) => Ok(string_to_number(s.to_string())?),
         Operador::Texto(s) => Ok(Datos::String(s.to_string())),
-        _ => Err(ErrorType::InvalidSyntax("Se esperaba una variable".to_string())),
+        _ => Err(ErrorType::InvalidSyntax(
+            "Se esperaba una variable".to_string(),
+        )),
     }
 }
 
 /// Extrae el String mas interno de la lista si no tiene mas de un elemento
 pub fn extraer_interno_lista(operador: &[Operador]) -> Result<Datos, ErrorType> {
-    if operador.len() != 1 {return Err(ErrorType::InvalidSyntax("Cantidad de elemenos incorrecta".to_string()))}
-    match &operador[0]{
+    if operador.len() != 1 {
+        return Err(ErrorType::InvalidSyntax(
+            "Cantidad de elemenos incorrecta".to_string(),
+        ));
+    }
+    match &operador[0] {
         Operador::String(s) => Ok(string_to_number(s.to_string())?),
         Operador::Texto(s) => Ok(Datos::String(s.to_string())),
         Operador::Lista(operador) => extraer_interno_lista(operador.as_slice()),
-        Operador::Comparador(_) => Err(ErrorType::InvalidSyntax("Comparador inesperado.".to_string()))
+        Operador::Comparador(_) => Err(ErrorType::InvalidSyntax(
+            "Comparador inesperado.".to_string(),
+        )),
     }
 }
 
@@ -65,20 +86,26 @@ pub fn operador_to_single_dato(operador: &Operador) -> Result<Datos, ErrorType> 
     match &operador {
         Operador::String(_) | Operador::Texto(_) => Ok(operador_to_dato(operador)?),
         Operador::Lista(list) => Ok(extraer_interno_lista(list.as_slice())?),
-        Operador::Comparador(_) => Err(ErrorType::InvalidSyntax("Comparador inesperado.".to_string()))
+        Operador::Comparador(_) => Err(ErrorType::InvalidSyntax(
+            "Comparador inesperado.".to_string(),
+        )),
     }
 }
 
 /// Extrae el Valor más interno de la lista si no tiene más de un elemento
 pub fn extraer_interno_lista_valor(operador: &[Operador]) -> Result<Valor, ErrorType> {
     if operador.len() != 1 {
-        return Err(ErrorType::InvalidSyntax("Cantidad de elementos incorrecta".to_string()));
+        return Err(ErrorType::InvalidSyntax(
+            "Cantidad de elementos incorrecta".to_string(),
+        ));
     }
     match &operador[0] {
         Operador::String(s) => Ok(Valor::String(s.to_string())),
         Operador::Texto(s) => Ok(Valor::Literal(s.to_string())),
         Operador::Lista(operador) => extraer_interno_lista_valor(operador.as_slice()),
-        Operador::Comparador(_) => Err(ErrorType::InvalidSyntax("Comparador inesperado.".to_string())),
+        Operador::Comparador(_) => Err(ErrorType::InvalidSyntax(
+            "Comparador inesperado.".to_string(),
+        )),
     }
 }
 
@@ -88,20 +115,23 @@ pub fn operador_to_single_valor(operador: &Operador) -> Result<Valor, ErrorType>
         Operador::String(s) => Ok(Valor::String(s.to_string())),
         Operador::Texto(s) => Ok(Valor::Literal(s.to_string())),
         Operador::Lista(list) => extraer_interno_lista_valor(list.as_slice()),
-        Operador::Comparador(_) => Err(ErrorType::InvalidSyntax("Comparador inesperado.".to_string())),
+        Operador::Comparador(_) => Err(ErrorType::InvalidSyntax(
+            "Comparador inesperado.".to_string(),
+        )),
     }
 }
 
-
 /// String a OperadorCOmparador
 pub fn string_to_comparacion(comparador: &str) -> Result<OperadorComparacion, ErrorType> {
-    match comparador{
+    match comparador {
         "=" => Ok(OperadorComparacion::Igual),
         ">" => Ok(OperadorComparacion::Mayor),
         "<" => Ok(OperadorComparacion::Menor),
         ">=" => Ok(OperadorComparacion::MayorIgual),
         "<=" => Ok(OperadorComparacion::MenorIgual),
-        _ => Err(ErrorType::InvalidSyntax("Operador de comparación no válido".to_string()))
+        _ => Err(ErrorType::InvalidSyntax(
+            "Operador de comparación no válido".to_string(),
+        )),
     }
 }
 
@@ -110,10 +140,11 @@ pub fn string_to_direccion(direccion: &str) -> Result<OrderDirection, ErrorType>
     match direccion {
         "ASC" => Ok(OrderDirection::Asc),
         "DESC" => Ok(OrderDirection::Desc),
-        _ => Err(ErrorType::InvalidSyntax("Operador de direccion no válido".to_string()))
+        _ => Err(ErrorType::InvalidSyntax(
+            "Operador de direccion no válido".to_string(),
+        )),
     }
 }
-
 
 //
 pub fn dato_to_string(dato: &Datos) -> String {

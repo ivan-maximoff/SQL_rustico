@@ -1,6 +1,15 @@
 use std::io::BufRead;
 
-use crate::{errores::error::ErrorType, executer::{execute::Execute, manejo_csv::{agregar_linea, eliminar_archivo, filtrar_columnas, imprimir_archivo, listar_columnas, ordenar_archivo, preparar_archivos, string_to_columns, where_condition}}};
+use crate::{
+    errores::error::ErrorType,
+    executer::{
+        execute::Execute,
+        manejo_csv::{
+            agregar_linea, eliminar_archivo, filtrar_columnas, imprimir_archivo, listar_columnas,
+            ordenar_archivo, preparar_archivos, string_to_columns, where_condition,
+        },
+    },
+};
 
 use super::{order_clause::OrderClause, where_clause::expresion_booleana::ExpresionBooleana};
 
@@ -10,17 +19,22 @@ pub struct SelectQuery {
     pub columns_select: Vec<String>,
     pub table: String,
     pub where_clause: Option<ExpresionBooleana>,
-    pub order_by: Option<Vec<OrderClause>>
+    pub order_by: Option<Vec<OrderClause>>,
 }
 
 impl SelectQuery {
     /// Crea una nueva instancia de `SelectQuery`.
-    pub fn new(columns_select: Vec<String>, table: String, where_clause: Option<ExpresionBooleana>, order_by: Option<Vec<OrderClause>>) -> Self {
+    pub fn new(
+        columns_select: Vec<String>,
+        table: String,
+        where_clause: Option<ExpresionBooleana>,
+        order_by: Option<Vec<OrderClause>>,
+    ) -> Self {
         SelectQuery {
             columns_select,
             table,
             where_clause,
-            order_by
+            order_by,
         }
     }
 }
@@ -36,11 +50,15 @@ impl Execute for SelectQuery {
             match line {
                 Ok(line) => {
                     let fila = string_to_columns(&line, &columnas)?;
-                    if where_condition(&self.where_clause, &fila)? { 
+                    if where_condition(&self.where_clause, &fila)? {
                         agregar_linea(&path_aux, &line)?;
                     }
                 }
-                Err(_) => return Err(ErrorType::InvalidTable("Error al escribir una linea".to_string())),
+                Err(_) => {
+                    return Err(ErrorType::InvalidTable(
+                        "Error al escribir una linea".to_string(),
+                    ))
+                }
             }
         }
         ordenar_archivo(path, &"auxiliar".to_string(), &self.order_by)?;

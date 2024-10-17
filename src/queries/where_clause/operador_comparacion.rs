@@ -5,5 +5,5 @@ pub enum OperadorComparacion {
     Menor,
     MenorIgual,
     Mayor,
-    MayorIgual
+    MayorIgual,
 }

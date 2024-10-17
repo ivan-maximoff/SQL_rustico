@@ -6,9 +6,9 @@ pub enum ExpresionBooleana {
     Comparacion {
         izq: Valor,
         operador: OperadorComparacion,
-        der: Valor
+        der: Valor,
     },
     And(Box<ExpresionBooleana>, Box<ExpresionBooleana>),
     Or(Box<ExpresionBooleana>, Box<ExpresionBooleana>),
-    Not(Box<ExpresionBooleana>),   
+    Not(Box<ExpresionBooleana>),
 }
