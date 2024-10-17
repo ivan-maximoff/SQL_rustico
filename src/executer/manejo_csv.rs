@@ -4,7 +4,6 @@ use crate::{dato::Datos, errores::error::ErrorType, queries::{order_clause::{Ord
 
 /// Abre un archivo en la ruta dada y devuelve un `BufReader` para leer el contenido. Retorna un error si el archivo no se puede abrir.
 pub fn get_reader(path: &String) -> Result<BufReader<File>, ErrorType> {
-    println!("{}", path);
     match File::open(path) {
         Ok(file) => Ok(BufReader::new(file)),
         Err(_) => Err(ErrorType::InvalidTable("Error al abrir el archivo".to_string())),
@@ -34,7 +33,6 @@ pub fn agregar_path(path: &str, agregado: &String) -> String {
 
 /// Crea un nuevo archivo en la ruta dada. Retorna un error si la creación del archivo falla.
 pub fn crear_archivo(path: &String) -> Result<File, ErrorType>{
-    println!("{}", path);
     match File::create(path){
         Ok(file) => Ok(file),
         Err(_) => Err(ErrorType::InvalidTable("Error al crear el archivo".to_string()))
