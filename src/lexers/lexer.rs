@@ -42,7 +42,6 @@ fn string_rec(
     espacio: bool,
 ) -> Result<(String, usize), ErrorType> {
     if actual >= string.len() {
-        dbg!(string);
         return Err(ErrorType::InvalidSyntax(
             "Comilla simple sin cerrar.".to_string(),
         ));
