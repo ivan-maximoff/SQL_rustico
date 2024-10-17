@@ -19,11 +19,11 @@ impl InsertQuery {
 
 impl Execute for InsertQuery {
     /// Ejecuta la consulta INSERT en el archivo especificado, añadiendo nuevas filas.
-    fn execute(&self, path: &String) -> Result<(), ErrorType> {
+    fn execute(&self, path: &str) -> Result<(), ErrorType> {
         let (path_insert, reader, path_aux) = preparar_archivos(path, &self.table, &"auxiliar".to_string())?;
         let lines = reader.lines();
-        let (mut lines, columns) = listar_columnas(&path_aux, lines)?;
-        while let Some(line) = lines.next() {
+        let (lines, columns) = listar_columnas(&path_aux, lines)?;
+        for line in lines {
             match line {
                 Ok(line) =>  agregar_linea(&path_aux, &line)?,
                 Err(_) => return Err(ErrorType::InvalidTable("Error al escribir una linea".to_string())),
@@ -31,7 +31,7 @@ impl Execute for InsertQuery {
         }
 
         for value in &self.values{
-            let value = datos_to_row(&value, &columns)?;
+            let value = datos_to_row(value, &columns)?;
             agregar_linea(&path_aux, &value)?;
         }
 

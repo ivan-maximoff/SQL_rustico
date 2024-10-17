@@ -2,7 +2,7 @@
 mod integration_tests {
     use std::collections::HashMap;
 
-    use tp1::{dato::Datos, lexer::{lexer::lexer, operador::Operador}, parser::parser::parser, queries::{order_clause::{OrderClause, OrderDirection}, sql_query::SQLQuery, where_clause::{expresion_booleana::ExpresionBooleana, operador_comparacion::OperadorComparacion, valor::Valor}}, utils::procesar_consulta};
+    use tp1::{dato::Datos, lexers::{lexer::lexer, operador::Operador}, parsers::parser::parser, queries::{order_clause::{OrderClause, OrderDirection}, sql_query::SQLQuery, where_clause::{expresion_booleana::ExpresionBooleana, operador_comparacion::OperadorComparacion, valor::Valor}}, utils::procesar_consulta};
 
     /// LEXER Y PARSER
     #[test]

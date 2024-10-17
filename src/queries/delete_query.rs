@@ -23,11 +23,11 @@ impl DeleteQuery {
 
 impl Execute for DeleteQuery {
     /// Ejecuta la consulta DELETE en el archivo especificado, considerando la cláusula WHERE.
-    fn execute(&self, path: &String) -> Result<(), ErrorType> {
+    fn execute(&self, path: &str) -> Result<(), ErrorType> {
         let (path_delete, reader, path_aux) = preparar_archivos(path, &self.table, &"auxiliar".to_string())?;
         let lines = reader.lines();
-        let (mut lines, columnas) = listar_columnas(&path_aux, lines)?;
-        while let Some(line) = lines.next() {
+        let (lines, columnas) = listar_columnas(&path_aux, lines)?;
+        for line in lines {
             match line {
                 Ok(line) => {
                     let fila = string_to_columns(&line, &columnas)?;

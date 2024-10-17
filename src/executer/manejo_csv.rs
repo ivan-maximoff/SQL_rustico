@@ -28,7 +28,7 @@ pub fn eliminar_archivo(path: &String) -> Result<(), ErrorType> {
 }
 
 /// Genera una ruta de archivo agregando el nombre de la tabla al path dado y añadiendo la extensión `.csv`.
-pub fn agregar_path(path: &String, agregado: &String) -> String {
+pub fn agregar_path(path: &str, agregado: &String) -> String {
     format!("{}/{}.csv", path, agregado)
 }
 
@@ -75,7 +75,7 @@ pub fn datos_to_row(datos: &HashMap<String, Datos>, columnas: &Vec<String>) -> R
 }
 
 /// Filtra y devuelve solo las columnas seleccionadas en formato CSV y las posiciones de las mismas.
-pub fn filtrar_columnas(columnas_selected: &Vec<String>, columnas: &Vec<String>) -> Result<(String, Vec<usize>), ErrorType> {
+pub fn filtrar_columnas(columnas_selected: &Vec<String>, columnas: &[String]) -> Result<(String, Vec<usize>), ErrorType> {
     if columnas_selected.len() == 1 && columnas_selected[0] == "*" {
         let columnas_filtradas = columnas.join(",");
         let posiciones: Vec<usize> = (0..columnas.len()).collect();
@@ -113,13 +113,13 @@ Result<(std::io::Lines<std::io::BufReader<std::fs::File>>, Vec<String>), ErrorTy
                     .split(',')
                     .map(|column_name| column_name.trim().to_string())
                     .collect();
-                agregar_linea(&path_aux, &line)?;
+                agregar_linea(path_aux, &line)?;
                 return Ok((lines, column_names));
             },
             Err(_) => return Err(ErrorType::InvalidTable("Error al escribir una linea".to_string())),
         }
     }
-    return Err(ErrorType::InvalidTable("El archivo está vacío".to_string()));
+    Err(ErrorType::InvalidTable("El archivo está vacío".to_string()))
 }
 
 /// Evalúa la condición `where` en una fila y devuelve `true` si la fila cumple con la condición o si no hay condición.
@@ -131,7 +131,7 @@ pub fn where_condition(condition: &Option<ExpresionBooleana>, fila: &HashMap<Str
 }
 
 /// Convierte una línea de CSV en un `HashMap` de datos, basándose en los nombres de las columnas proporcionados.
-pub fn string_to_columns(line: &str, columnas: &Vec<String>) -> Result<HashMap<String, Datos>, ErrorType> {
+pub fn string_to_columns(line: &str, columnas: &[String]) -> Result<HashMap<String, Datos>, ErrorType> {
     let mut result = HashMap::new();
     let values: Vec<&str> = line.split(',').collect();
 
@@ -152,7 +152,7 @@ pub fn string_to_columns(line: &str, columnas: &Vec<String>) -> Result<HashMap<S
 }
 
 /// Modifica una línea de CSV de acuerdo a los cambios especificados y devuelve la línea modificada.
-pub fn modificar_linea(linea: &String, cambios: &HashMap<String, Datos>, columnas: &Vec<String>) -> Result<String, ErrorType>{
+pub fn modificar_linea(linea: &str, cambios: &HashMap<String, Datos>, columnas: &[String]) -> Result<String, ErrorType>{
     let mut values: Vec<String> = linea.split(',')
         .map(|s| s.trim().to_string()) 
         .collect();
@@ -173,7 +173,7 @@ pub fn modificar_linea(linea: &String, cambios: &HashMap<String, Datos>, columna
 }
 
 /// Cambia el orden de los valores de las columnas para la query SELECT
-fn ordenar_linea(linea: &String, orden: &Vec<usize>) -> Result<String, ErrorType> {
+fn ordenar_linea(linea: &str, orden: &Vec<usize>) -> Result<String, ErrorType> {
     let values: Vec<String> = linea.split(',')
         .map(|s| s.trim().to_string()) 
         .collect();
@@ -192,13 +192,13 @@ fn ordenar_linea(linea: &String, orden: &Vec<usize>) -> Result<String, ErrorType
 
 /// Imprime el contenido del archivo en la salida estándar, usando las columnas seleccionadas como encabezado y imprimiendo en el orden de las posiciones.
 pub fn imprimir_archivo(path: &String, columnas_selected: String, posiciones: Vec<usize>)-> Result<(), ErrorType> {
-    let reader = get_reader(&path)?;
+    let reader = get_reader(path)?;
     let mut lines = reader.lines();
-    if let Some(_) = lines.next(){
+    if lines.next().is_some(){
         println!("{}", columnas_selected)
     };
-    while let Some(line) = lines.next() {
-        match line {
+    for linea in lines {
+        match linea {
             Ok(line) =>  println!("{}", ordenar_linea(&line, &posiciones)?),
             Err(_) => return Err(ErrorType::InvalidTable("Error al escribir una linea".to_string())),
         }
@@ -208,7 +208,7 @@ pub fn imprimir_archivo(path: &String, columnas_selected: String, posiciones: Ve
 
 /// Compara dos líneas según las cláusulas de orden y las columnas especificadas.
 /// Retorna `true` si `linea_1` es posterior que `linea_2` de acuerdo con las cláusulas de orden.
-fn comparar_linea(linea_1: &String, linea_2: &String, order_by: &Vec<OrderClause>, columnas: &Vec<String>) -> Result<bool, ErrorType> {
+fn comparar_linea(linea_1: &str, linea_2: &str, order_by: &Vec<OrderClause>, columnas: &[String]) -> Result<bool, ErrorType> {
     let linea_1 = string_to_columns(linea_1, columnas)?;
     let linea_2 = string_to_columns(linea_2, columnas)?;
     for clause in order_by {
@@ -236,31 +236,31 @@ fn leer_primera_linea( lines: &mut Lines<BufReader<File>>) -> Result<String, Err
 
 /// Procesa una pasada del algoritmo de bubble sort en el archivo especificado.
 /// Reescribe las líneas en el archivo auxiliar y marca si hubo cambios.
-fn pasada_bubble_sort_archivo(lines: &mut Lines<BufReader<File>>, path_aux: &String, columnas: &Vec<String>, order_by: &Vec<OrderClause>, hay_cambios: &mut bool) -> Result<(), ErrorType> {
+fn pasada_bubble_sort_archivo(lines: &mut Lines<BufReader<File>>, path_aux: &String, columnas: &[String], order_by: &Vec<OrderClause>, hay_cambios: &mut bool) -> Result<(), ErrorType> {
     let mut linea_anterior = leer_primera_linea(lines)?;
 
-    while let Some(line_actual) = lines.next() {
+    for line_actual in lines.by_ref() {
         match line_actual {
             Ok(linea_actual) => {
-                if comparar_linea(&linea_actual, &linea_anterior, order_by, &columnas)? {
-                    agregar_linea(&path_aux, &linea_anterior)?;
+                if comparar_linea(&linea_actual, &linea_anterior, order_by, columnas)? {
+                    agregar_linea(path_aux, &linea_anterior)?;
                     linea_anterior = linea_actual;
                 } else {
-                    agregar_linea(&path_aux, &linea_actual)?;
+                    agregar_linea(path_aux, &linea_actual)?;
                     *hay_cambios = true;
                 }
         }
             Err(_) => return Err(ErrorType::InvalidTable("Error al escribir una linea".to_string())),
         }
     }
-    agregar_linea(&path_aux, &linea_anterior)?;
+    agregar_linea(path_aux, &linea_anterior)?;
     Ok(())
     
 }
 
 /// Ordena el archivo especificado usando el algoritmo de bubble sort basado en las cláusulas de orden.
 /// Reemplaza el archivo original con el archivo ordenado.
-fn bubble_sort_archivo(path: &String, table: &String, order_by: &Vec<OrderClause>) -> Result<(), ErrorType> {
+fn bubble_sort_archivo(path: &str, table: &String, order_by: &Vec<OrderClause>) -> Result<(), ErrorType> {
     if order_by.is_empty() {
         return Ok(());
     }
@@ -281,14 +281,14 @@ fn bubble_sort_archivo(path: &String, table: &String, order_by: &Vec<OrderClause
 }
 
 /// Ordena un archivo según las cláusulas de orden especificadas.
-pub fn ordenar_archivo(path: &String, table: &String, order_by: &Option<Vec<OrderClause>>)->  Result<(), ErrorType> {
+pub fn ordenar_archivo(path: &str, table: &String, order_by: &Option<Vec<OrderClause>>)->  Result<(), ErrorType> {
     if let Some(order_by) = order_by {
         bubble_sort_archivo(path, table, order_by)?;
     }
     Ok(())
 }
 
-pub fn preparar_archivos(path: &String, table: &String, table_auxiliar: &String) -> Result<(String, std::io::BufReader<std::fs::File>, String), ErrorType> {
+pub fn preparar_archivos(path: &str, table: &String, table_auxiliar: &String) -> Result<(String, std::io::BufReader<std::fs::File>, String), ErrorType> {
     let path_table = agregar_path(path, table);
     let reader = get_reader(&path_table)?;
     let path_aux = agregar_path(path, table_auxiliar);

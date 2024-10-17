@@ -26,11 +26,11 @@ impl UpdateQuery{
 
 impl Execute for UpdateQuery {
      /// Ejecuta la consulta UPDATE en el archivo especificado, aplicando los cambios a las filas que cumplen la condición WHERE.
-    fn execute(&self, path: &String) -> Result<(), ErrorType> {
+    fn execute(&self, path: &str) -> Result<(), ErrorType> {
         let (path_update, reader, path_aux) = preparar_archivos(path, &self.table, &"auxiliar".to_string())?;
         let lines = reader.lines();
-        let (mut lines, columnas) = listar_columnas(&path_aux, lines)?;
-        while let Some(line) = lines.next() {
+        let (lines, columnas) = listar_columnas(&path_aux, lines)?;
+        for line in lines{
             match line {
                 Ok(mut line) => {
                     let fila = string_to_columns(&line, &columnas)?;

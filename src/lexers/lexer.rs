@@ -21,14 +21,14 @@ fn agregar_substring(operadores: &mut Vec<Operador>, lista: &mut Vec<Operador>, 
 
 /// Recibe un texto entre comillas simples y lo devuelve con espacios simples entre cada palabra
 fn string_rec(string: &String, actual: usize, mut substring: String, espacio: bool) -> Result<(String, usize), ErrorType>{
-    if actual >= string.len() {return Err(ErrorType::InvalidSyntax("Comilla simple sin cerrar.".to_string()))}
-    let caracter = &string[actual..actual+1];
+    if actual >= string.len() {dbg!(string);return Err(ErrorType::InvalidSyntax("Comilla simple sin cerrar.".to_string()))}
+    let Some(caracter) = string.chars().nth(actual) else {return Err(ErrorType::InvalidSyntax("Fallo".to_string()));};
     match caracter{
-        "\'" => Ok((substring, actual)),
-        " " => string_rec(string, actual+1, substring, true), 
+        '\'' => Ok((substring, actual)),
+        ' ' => string_rec(string, actual+1, substring, true), 
         _ => {
-            if espacio && !substring.is_empty() {substring.push_str(" ");}
-            substring.push_str(caracter);
+            if espacio && !substring.is_empty() {substring.push(' ');}
+            substring.push_str(&caracter.to_string());
             string_rec(string, actual+1, substring, false)
         }
     }
@@ -36,19 +36,19 @@ fn string_rec(string: &String, actual: usize, mut substring: String, espacio: bo
 
 /// Funcion recursiva que matchea todos los caracteres y crea los operadores
 fn lexer_rec(string: &String, actual: usize, mut operadores: Vec<Operador>, mut substring: String, mut lista: Vec<Operador>, lista_open: bool) ->  Result<(Vec<Operador>, usize), ErrorType> {
-    if actual >= string.len() { // caso base: termino el string
+    if actual >= string.chars().count() { // caso base: termino el string
         if lista_open {return Err(ErrorType::InvalidSyntax("Falta cerrar parentesis.".to_string()));}
         agregar_substring(&mut operadores, &mut lista, lista_open, &mut substring);
         return Ok((operadores, actual));
     }
-    let caracter = &string[actual..actual+1];
+    let Some(caracter) = string.chars().nth(actual) else {return Err(ErrorType::InvalidSyntax("Fallo".to_string()));};
     match caracter{
-        "\'" => { // hay un "texto"
+        '\'' => { // hay un "texto"
             let (substring, actual) = string_rec(string, actual+1, "".to_string(), false)?;
             agregar_operador(&mut operadores, &mut lista, lista_open, Operador::Texto(substring));
             lexer_rec(string, actual+1, operadores, "".to_string(), lista, lista_open)
         }
-        "(" => { // empieza una lista
+        '(' => { // empieza una lista
             agregar_substring(&mut operadores, &mut lista, lista_open, &mut substring);
             let (nueva_lista, nuevo_actual) = lexer_rec(string, actual + 1, Vec::new(), "".to_string(), Vec::new(), true)?;
             for elemento in nueva_lista{ // siempre va a ser uno solo
@@ -56,16 +56,16 @@ fn lexer_rec(string: &String, actual: usize, mut operadores: Vec<Operador>, mut 
             }
             lexer_rec(string, nuevo_actual + 1, operadores, substring, lista, lista_open)
         }
-        ")" =>{ // termino una lista
+        ')' =>{ // termino una lista
             if !lista_open {return Err(ErrorType::InvalidSyntax("Paréntesis de cierre sin haber uno de apertura.".to_string()));}
             if !substring.is_empty(){lista.push(Operador::String(substring))}
-            if lista.len() == 0 { return Err(ErrorType::InvalidSyntax("Paréntesis sin nada adentro".to_string())); }
+            if lista.is_empty() { return Err(ErrorType::InvalidSyntax("Paréntesis sin nada adentro".to_string())); }
             operadores.push(Operador::Lista(lista));
             Ok((operadores, actual))
         }
-        "=" | ">" | "<" => { // caracter especial que agrega la palabra anterior y luego se pushea a el mismo
+        '=' | '>' | '<' => { // caracter especial que agrega la palabra anterior y luego se pushea a el mismo
             let mut operador = caracter.to_string();
-            if (caracter == ">" || caracter == "<") && actual + 1 < string.len() {
+            if (caracter == '>' || caracter == '<') && actual + 1 < string.len() {
                 let siguiente = &string[actual + 1..actual + 2];
                 if siguiente == "=" {
                     operador.push_str(siguiente);
@@ -76,13 +76,13 @@ fn lexer_rec(string: &String, actual: usize, mut operadores: Vec<Operador>, mut 
             agregar_operador(&mut operadores, &mut lista, lista_open, Operador::Comparador(operador));
             lexer_rec(string, actual, operadores, "".to_string(), lista, lista_open)
         }
-        " " | "," if substring.is_empty() => lexer_rec(string, actual+1, operadores, substring, lista, lista_open),
-        " " | "," => { // termino una palabra no vacia
+        ' ' | ',' if substring.is_empty() => lexer_rec(string, actual+1, operadores, substring, lista, lista_open),
+        ' ' | ',' => { // termino una palabra no vacia
             agregar_substring(&mut operadores, &mut lista, lista_open, &mut substring);
             lexer_rec(string, actual+1, operadores, "".to_string(), lista, lista_open)
         }
         _ => { // agrego el caracter
-            substring.push_str(caracter);
+            substring.push_str(&caracter.to_string());
             lexer_rec(string, actual+1, operadores, substring, lista, lista_open)
         }
     }
@@ -99,7 +99,7 @@ pub fn lexer(string: &String) -> Result<Vec<Operador>, ErrorType>{
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::operador::Operador;
+    use crate::lexers::operador::Operador;
     use super::lexer;
 
     /// Función auxiliar para probar el lexer con un caso de prueba exitoso

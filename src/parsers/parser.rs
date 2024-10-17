@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{dato::Datos, errores::error::ErrorType, lexer::operador::Operador, queries::{delete_query::DeleteQuery, insert_query::InsertQuery, order_clause::{OrderClause, OrderDirection}, select_query::SelectQuery, sql_query::SQLQuery, update_query::UpdateQuery, where_clause::expresion_booleana::ExpresionBooleana}, utils::{operador_to_dato, operador_to_single_dato, operador_to_single_valor, string_to_comparacion, string_to_direccion}};
+use crate::{dato::Datos, errores::error::ErrorType, lexers::operador::Operador, queries::{delete_query::DeleteQuery, insert_query::InsertQuery, order_clause::{OrderClause, OrderDirection}, select_query::SelectQuery, sql_query::SQLQuery, update_query::UpdateQuery, where_clause::expresion_booleana::ExpresionBooleana}, utils::{operador_to_dato, operador_to_single_dato, operador_to_single_valor, string_to_comparacion, string_to_direccion}};
 
 /// Transforma una lista de Operadores en una lista de Strings para la lista de columnas
 /// ["column1", "column2,", "..."] a Vec<String>
@@ -16,14 +16,14 @@ fn columns_to_string(lista: &Vec<Operador>) -> Result<Vec<String>, ErrorType> {
 }
 
 /// Verifica si hay columnas repetidas en un vector de nombres de columnas.
-fn columnas_repetidas(columnas: &Vec<String>) -> bool {
+fn columnas_repetidas(columnas: &[String]) -> bool {
     let unique_columns: HashSet<_> = columnas.iter().collect();
     unique_columns.len() != columnas.len()
 }
 
 /// Transforma una lista de Operadores en una lista de Datos para value
 /// ["value1", "value2", "..."] a Vec<Datos>
-fn operador_to_value(lista: &Vec<Operador>, columnas: &Vec<String>) -> Result<HashMap<String, Datos>, ErrorType> {
+fn operador_to_value(lista: &[Operador], columnas: &[String]) -> Result<HashMap<String, Datos>, ErrorType> {
     if lista.len() != columnas.len() {
         return Err(ErrorType::InvalidSyntax("El número de columnas y valores no coincide.".to_string()));
     }
@@ -37,7 +37,7 @@ fn operador_to_value(lista: &Vec<Operador>, columnas: &Vec<String>) -> Result<Ha
 
 /// Para pasar los values a INSERTAR
 /// ["value1", "value2", "..."] ["value1", "value2", "..."] ... a Vec<HashMap<String, Datos> -> Vec(Columna -> Valor)
-fn operador_to_values(lista: &[Operador], columnas: &Vec<String>) -> Result<Vec<HashMap<String, Datos>>, ErrorType> {
+fn operador_to_values(lista: &[Operador], columnas: &[String]) -> Result<Vec<HashMap<String, Datos>>, ErrorType> {
     let mut values: Vec<HashMap<String, Datos>> = Vec::new();
     for operador in lista{
         match operador {
@@ -63,8 +63,47 @@ fn changes_rec(mut changes: HashMap<String, Datos>, rest: &[Operador]) -> Result
     }
 }
 
+fn precedence(rest: &[Operador]) -> (Vec<Operador>, &[Operador]) {
+    let mut result = Vec::new();
+    let mut current_list = Vec::new();
+
+    for (i, operador) in rest.iter().enumerate() {
+        match operador {
+            Operador::String(s) if s == "ORDER" => {
+                if !current_list.is_empty() {
+                    result.push(Operador::Lista(current_list));
+                }
+                return (result, &rest[i..]);
+            }
+            Operador::Lista(inner_list) => {
+                let (processed_inner_list, _) = precedence(inner_list);
+                current_list.push(Operador::Lista(processed_inner_list));
+            }
+            Operador::String(s) if s == "OR" => {
+                result.push(Operador::Lista(current_list));
+                result.push(Operador::String(s.to_string()));
+                current_list = Vec::new();
+            }
+            Operador::String(c) => {
+                current_list.push(Operador::String(c.to_string()));
+            }
+            Operador::Comparador(c) => {
+                current_list.push(Operador::Comparador(c.to_string()));
+            }
+            Operador::Texto(c) => {
+                current_list.push(Operador::Texto(c.to_string()));
+            }
+        }
+    }
+
+    if !current_list.is_empty() {
+        result.push(Operador::Lista(current_list));
+    }
+    (result, &rest[rest.len()..])
+}
+
 /// Crea una comparacion simple del formato [izq, =|<|>|>=|<=, der]
-fn crear_comparacion(izq: &Operador, comparador: &String, der: &Operador) -> Result<ExpresionBooleana, ErrorType> {
+fn crear_comparacion(izq: &Operador, comparador: &str, der: &Operador) -> Result<ExpresionBooleana, ErrorType> {
     Ok(ExpresionBooleana::Comparacion {
         izq: operador_to_single_valor(izq)?, 
         operador: string_to_comparacion(comparador)?,
@@ -72,68 +111,50 @@ fn crear_comparacion(izq: &Operador, comparador: &String, der: &Operador) -> Res
     })
 }
 
-/// Determina si se debe finalizar el procesamiento del WHERE
-fn end_where(rest: &[Operador]) -> bool {
-    match rest.get(0) {
-        None => true, // Final del slice
-        Some(Operador::String(s)) if s == "ORDER" => true,
-        _ => false,
-    }
-}
-
-/// Maneja operadores lógicos AND y OR
-fn procesar_operador_logico(op: String, comparacion: ExpresionBooleana, rest: &[Operador] ) -> Result<(Option<ExpresionBooleana>, &[Operador]), ErrorType> {
-    let operador = if op == "AND" { ExpresionBooleana::And } else { ExpresionBooleana::Or };
-    if rest.is_empty() {return Err(ErrorType::InvalidSyntax(format!("No hay nada después del {}.", op)));}
-    let (expresion, rest) = where_clause_rec(rest)?;
-    match expresion {
-        Some(expr) => Ok((Some(operador(Box::new(comparacion), Box::new(expr))), rest)),
-        None => Err(ErrorType::InvalidSyntax(format!("Operador lógico {} sin expresión válida.", op))),
-    }
-}
-
-/// Maneja la clausula NOT
-fn procesar_not(rest: &[Operador]) -> Result<(Option<ExpresionBooleana>, &[Operador]), ErrorType> {
-    if rest.is_empty() {return Err(ErrorType::InvalidSyntax("No hay nada después del NOT.".to_string()));}
-    let (expresion, rest) = where_clause_rec(rest)?;
-    match expresion {
-        Some(expr) => Ok((Some(ExpresionBooleana::Not(Box::new(expr))), rest)),
-        None => Err(ErrorType::InvalidSyntax("No se puede aplicar NOT a una expresión vacía.".to_string())),
-    }
-}
-
-/// Matchea los operadores con los 5 posibles casos y se llama recursivamente creando un "arbol" de expresiones
-fn where_clause_rec(rest: &[Operador]) -> Result<(Option<ExpresionBooleana>, &[Operador]), ErrorType> {
+fn where_and_or(expresion_izq: ExpresionBooleana, rest: &[Operador]) -> Result<ExpresionBooleana, ErrorType> {
     match rest {
-        // [izq, comparador, der] caso de comparacion simple sin que le siga nada
-        [izq, Operador::Comparador(comparador), der, rest @ ..] if end_where(rest) => {
-            let expresion = crear_comparacion(izq, comparador, der)?;
-            Ok((Some(expresion), rest))
+        // [AND | OR, ...]
+        [Operador::String(op), rest @ ..] if op == "AND" || op == "OR" => {
+            let expresion_der = where_clause_rec(rest)?;
+            let operador_logico = if op == "AND" {
+                ExpresionBooleana::And
+            } else {
+                ExpresionBooleana::Or
+            };
+            let expresion = operador_logico(Box::new(expresion_izq), Box::new(expresion_der));
+
+            Ok(expresion)
         },
-        // [izq, comparador, der, AND | OR, rest] comparacion simple AND | OR y el resto
-        [izq, Operador::Comparador(comparador), der, Operador::String(op), rest @ ..] 
-        if op == "AND" || op == "OR" => {
+        // []
+        [] => Ok(expresion_izq),
+        _ => Err(ErrorType::InvalidSyntax("Operador lógico inválido o sintaxis incorrecta.".to_string())),
+    }
+}
+
+fn where_cases(rest: &[Operador]) -> Result<(ExpresionBooleana, &[Operador]), ErrorType> {
+    match rest {
+        // [izq, comparador, der, ...] Comparación simple
+        [izq, Operador::Comparador(comparador), der, rest @ ..] => {
             let comparacion = crear_comparacion(izq, comparador, der)?;
-            procesar_operador_logico(op.to_string(), comparacion, rest)
+            Ok((comparacion, rest))
         },
-        // [lista] lista sin que le siga nada
-        [Operador::Lista(lista), rest @..] if end_where(rest) => {
-            let (expresion, _) = where_clause_rec(&lista)?;
+        // [lista, ...]
+        [Operador::Lista(lista), rest @ ..] => {
+            let expresion = where_clause_rec(lista)?;
             Ok((expresion, rest))
         },
-        // [lista, AND | OR, rest] lista AND | OR y el resto
-        [Operador::Lista(lista), Operador::String(op), rest @ ..] if op == "AND" || op == "OR" => {
-            let (expresion_izq, _) = where_clause_rec(lista)?;
-            let (expresion_der, rest) = where_clause_rec(rest)?;
-            match (expresion_izq, expresion_der) {
-                (Some(expr_izq), Some(expr_der)) => Ok((Some(ExpresionBooleana::And(Box::new(expr_izq), Box::new(expr_der))), rest)),
-                _ => Err(ErrorType::InvalidSyntax("Operador lógico sin expresión válida.".to_string())),
-            }
+        // [NOT, ...]
+        [Operador::String(not), rest @ ..] if not == "NOT" => {
+            let (expresion, rest) = where_cases(rest)?;
+            Ok((ExpresionBooleana::Not(Box::new(expresion)), rest))
         },
-        // [NOT, ...] manejar el operador NOT
-        [Operador::String(not), rest @ ..] if not == "NOT" => procesar_not(rest),
-        _ => Err(ErrorType::InvalidSyntax("Sintaxis inválida en el WHERE.".to_string()))
+        _ => Err(ErrorType::InvalidSyntax("Sintaxis inválida en el WHERE.".to_string())),
     }
+}
+
+fn where_clause_rec(rest: &[Operador]) -> Result<ExpresionBooleana, ErrorType> {
+    let (expresion_inicial, rest) = where_cases(rest)?;
+    where_and_or(expresion_inicial, rest)
 }
 
 /// Se fija si tiene el operador WHERE y si esta devuelve sus valores
@@ -142,7 +163,9 @@ fn where_clause(rest: &[Operador]) -> Result<(Option<ExpresionBooleana>, &[Opera
         [Operador::String(where_str), rest @ ..]
         if where_str == "WHERE" => {
             if rest.is_empty() {return Err(ErrorType::InvalidSyntax("Faltan valores despues del WHERE".to_string()))}
-            Ok(where_clause_rec(rest)?)
+            let (where_vec, rest) = precedence(rest);
+            let expresion_booleana = where_clause_rec(&where_vec)?;
+            Ok((Some(expresion_booleana), rest))
         }
         _ => Ok((None, rest)), // ya que no es un campo obligatorio
 
@@ -168,7 +191,7 @@ fn order_by_rec(rest: &[Operador], mut order_by: Vec<OrderClause>) -> Result<(Ve
         // [columna, direccion, rest]
         [Operador::String(column) | Operador::Texto(column), Operador::String(direccion), rest @ ..]
         if direccion == "ASC" || direccion == "DESC" => {
-            let direccion = string_to_direccion(&direccion)?;
+            let direccion = string_to_direccion(direccion)?;
             let order_clause = OrderClause {
                 column: column.to_string(),
                 direccion
@@ -226,7 +249,7 @@ fn parser_update(table: &String, rest: &[Operador])-> Result<UpdateQuery, ErrorT
 }
 
 /// Table y [...] a DeleteQuery
-fn parser_delete(table: &String, rest: &[Operador])-> Result<DeleteQuery, ErrorType>{
+fn parser_delete(table: &str, rest: &[Operador])-> Result<DeleteQuery, ErrorType>{
     let (where_condition, rest ) = where_clause(rest)?;
     if !rest.is_empty() {return Err(ErrorType::InvalidSyntax("Sintaxis invalida en DELETE".to_string()));}
     Ok(DeleteQuery::new(table, where_condition))
@@ -260,7 +283,7 @@ fn parse_insert_query(table: &String, columns: &Vec<Operador>, values: &Operador
 
 /// Procesar UPDATE
 fn parse_update_query(table: &String, rest: &[Operador]) -> Result<SQLQuery, ErrorType> {
-    match rest.get(0) {
+    match rest.first(){
         Some(Operador::String(set)) if set == "SET" => {
             let update_query = parser_update(table, &rest[1..])?;
             Ok(SQLQuery::Update(update_query))
@@ -270,7 +293,7 @@ fn parse_update_query(table: &String, rest: &[Operador]) -> Result<SQLQuery, Err
 }
 
 /// Procesar DELETE
-fn parse_delete_query(table: &String, rest: &[Operador]) -> Result<SQLQuery, ErrorType> {
+fn parse_delete_query(table: &str, rest: &[Operador]) -> Result<SQLQuery, ErrorType> {
     let delete_query = parser_delete(table, rest)?;
     Ok(SQLQuery::Delete(delete_query))
 }
@@ -287,7 +310,7 @@ pub fn parser(query: &Vec<Operador>) -> Result<SQLQuery, ErrorType> {
         // [INSERT, INTO, tabla, columns, VALUES, values1, values2 ...]
         [Operador::String(insert), Operador::String(into), Operador::String(table) | Operador::Texto(table), Operador::Lista(columns), values, rest @ ..]
         if insert == "INSERT" && into == "INTO" => {
-            parse_insert_query(table, &columns, values, rest)
+            parse_insert_query(table, columns, values, rest)
         },
         // [UPDATE, tabla, SET, column1, valor1, column1, valor1, ..., WHERE, ...]
         [Operador::String(update), Operador::String(table), rest @ ..]
@@ -317,7 +340,7 @@ pub fn parser(query: &Vec<Operador>) -> Result<SQLQuery, ErrorType> {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{dato::Datos, lexer::operador::Operador, queries::{delete_query::DeleteQuery, insert_query::InsertQuery, order_clause::{OrderClause, OrderDirection}, select_query::SelectQuery, sql_query::SQLQuery, update_query::UpdateQuery, where_clause::{expresion_booleana::ExpresionBooleana, operador_comparacion::OperadorComparacion, valor::Valor}}};
+    use crate::{dato::Datos, lexers::operador::Operador, queries::{delete_query::DeleteQuery, insert_query::InsertQuery, order_clause::{OrderClause, OrderDirection}, select_query::SelectQuery, sql_query::SQLQuery, update_query::UpdateQuery, where_clause::{expresion_booleana::ExpresionBooleana, operador_comparacion::OperadorComparacion, valor::Valor}}};
     use super::parser;
 
     // Función auxiliar para probar el parser con un caso de prueba exitoso

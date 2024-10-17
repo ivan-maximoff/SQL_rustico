@@ -13,7 +13,7 @@ pub enum SQLQuery {
 
 impl Execute for SQLQuery {
     /// Ejecuta la consulta SQL según el tipo de consulta.
-    fn execute(&self, path: &String) -> Result<(), ErrorType> {
+    fn execute(&self, path: &str) -> Result<(), ErrorType> {
         match self {
             SQLQuery::Select(query) => query.execute(path),
             SQLQuery::Insert(query) => query.execute(path),

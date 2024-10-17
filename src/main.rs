@@ -6,15 +6,15 @@ static POS_PATH: usize = 1;
 static POS_QUERY: usize = 2;
 
 /// Verifica si el número de argumentos de línea de comandos es válido.
-fn entrada_valida(args: &Vec<String>)-> bool{
+fn entrada_valida(args: &[String])-> bool{
     if args.len() < 3 {
-        println!("{}", ErrorType::Error("Cantidad de argumentos invalido.".to_string()).to_string())
+        println!("{}", ErrorType::Error("Cantidad de argumentos invalido.".to_string()))
     }
-    return args.len() >= 3;
+    args.len() >= 3
 }
 
 /// Limpia la entrada eliminando espacios en blanco y saltos de línea, y divide en consultas.
-fn limpiar_entrada(entrada: &String)->Vec<String>{
+fn limpiar_entrada(entrada: &str)->Vec<String>{
     let limpiado = entrada
         .trim()
         .replace('\n', " ");
@@ -34,7 +34,7 @@ fn main() {
     
     for query in &texto{
         if let Err(e) = procesar_consulta(query, &args[POS_PATH]) {
-            println!("{}", e.to_string());
+            println!("{}", e);
             return;
         }
     }

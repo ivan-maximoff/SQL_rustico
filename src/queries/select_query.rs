@@ -28,11 +28,11 @@ impl SelectQuery {
 impl Execute for SelectQuery {
     /// Ejecuta la consulta SELECT en el archivo especificado, filtrando, seleccionando columnas y ordenando los resultados.
     /// Filtra en auxiliar.csv las filas que cumplen el where clause select y luego las ordena e imprime por pantalla.
-    fn execute(&self, path: &String) -> Result<(), ErrorType> {
+    fn execute(&self, path: &str) -> Result<(), ErrorType> {
         let (_, reader, path_aux) = preparar_archivos(path, &self.table, &"auxiliar".to_string())?;
         let lines = reader.lines();
-        let (mut lines, columnas) = listar_columnas(&path_aux, lines)?;
-        while let Some(line) = lines.next() {
+        let (lines, columnas) = listar_columnas(&path_aux, lines)?;
+        for line in lines {
             match line {
                 Ok(line) => {
                     let fila = string_to_columns(&line, &columnas)?;
@@ -43,7 +43,7 @@ impl Execute for SelectQuery {
                 Err(_) => return Err(ErrorType::InvalidTable("Error al escribir una linea".to_string())),
             }
         }
-        ordenar_archivo(&path, &"auxiliar".to_string(), &self.order_by)?;
+        ordenar_archivo(path, &"auxiliar".to_string(), &self.order_by)?;
         let (columnas_filtradas, posiciones) = filtrar_columnas(&self.columns_select, &columnas)?;
         imprimir_archivo(&path_aux, columnas_filtradas, posiciones)?;
         eliminar_archivo(&path_aux)?;
