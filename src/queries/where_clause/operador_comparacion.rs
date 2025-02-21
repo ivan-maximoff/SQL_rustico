@@ -3,7 +3,7 @@
 pub enum OperadorComparacion {
     Igual,
     Menor,
-    //MenorIgual,
+    MenorIgual,
     Mayor,
-    //MayorIgual
+    MayorIgual,
 }

@@ -1,20 +1,21 @@
+use std::fmt::{self, Display, Formatter};
+
 /// Enum que representa los tipos de errores en el sistema.
 /// Contiene variantes para errores de tabla, columna, sintaxis y errores generales.
-pub enum ErrorType{
+pub enum ErrorType {
     InvalidTable(String),
     InvalidColumn(String),
     InvalidSyntax(String),
-    Error(String)
+    Error(String),
 }
 
-impl ErrorType {
-    /// Convierte el tipo de error en una cadena de texto con formato específico.
-    pub fn to_string(&self) -> String {
+impl Display for ErrorType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            ErrorType::InvalidTable(description) => format!("[INVALID_TABLE]: {}", description),
-            ErrorType::InvalidColumn(description) => format!("[INVALID_COLUMN]: {}", description),
-            ErrorType::InvalidSyntax(description) => format!("[INVALID_SYNTAX]: {}", description),
-            ErrorType::Error(description) => format!("[ERROR]: {}", description),
+            ErrorType::InvalidTable(description) => write!(f, "[INVALID_TABLE]: {}", description),
+            ErrorType::InvalidColumn(description) => write!(f, "[INVALID_COLUMN]: {}", description),
+            ErrorType::InvalidSyntax(description) => write!(f, "[INVALID_SYNTAX]: {}", description),
+            ErrorType::Error(description) => write!(f, "[ERROR]: {}", description),
         }
     }
 }

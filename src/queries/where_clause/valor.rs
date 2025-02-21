@@ -2,5 +2,5 @@
 #[derive(Debug, PartialEq)]
 pub enum Valor {
     String(String),
-    Literal(String)
+    Literal(String),
 }
